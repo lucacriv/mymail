@@ -43,8 +43,11 @@
       </div>
       <form id="authForm" class="space-y-4">
         <div>
-          <label class="text-xs font-medium text-gray-400">Email (your login)</label>
-          <input id="auEmail" type="email" placeholder="you@example.com" class="inp w-full mt-1 px-3 py-2.5 rounded-lg text-sm" />
+          <label class="text-xs font-medium text-gray-400">Your email address</label>
+          <div class="flex items-center gap-2 mt-1">
+            <input id="auHandle" type="text" autocapitalize="none" autocomplete="username" placeholder="you" class="inp flex-1 px-3 py-2.5 rounded-lg text-sm" />
+            <span id="auDomain" class="text-sm text-gray-400 whitespace-nowrap">@mymail.app</span>
+          </div>
         </div>
         <div>
           <label class="text-xs font-medium text-gray-400">Password</label>
@@ -55,25 +58,7 @@
         <button id="auSubmit" type="submit" class="btn-primary w-full py-2.5 rounded-lg text-sm font-semibold">Sign in</button>
       </form>
     </div>
-    <p class="text-center text-xs text-gray-600 mt-5">Sign up, then claim your <span id="domHint">@mymail.app</span> address.</p>
-  </div>
-</div>
-
-<!-- ======= CLAIM ADDRESS ======= -->
-<div id="claimScreen" class="hidden min-h-screen flex items-center justify-center p-4">
-  <div class="w-full max-w-md fade card rounded-2xl p-6 shadow-2xl">
-    <h2 class="text-lg font-semibold mb-1">Claim your address</h2>
-    <p class="text-sm text-gray-400 mb-5">This is the address the outside world sends mail to.</p>
-    <label class="text-xs font-medium text-gray-400">Display name</label>
-    <input id="clName" type="text" placeholder="Alex Smith" class="inp w-full mt-1 mb-3 px-3 py-2.5 rounded-lg text-sm" />
-    <label class="text-xs font-medium text-gray-400">Address</label>
-    <div class="flex items-center gap-2 mt-1">
-      <input id="clHandle" type="text" placeholder="alex" class="inp flex-1 px-3 py-2.5 rounded-lg text-sm" />
-      <span id="clDomain" class="text-sm text-gray-400 whitespace-nowrap">@mymail.app</span>
-    </div>
-    <p id="clErr" class="text-xs text-red-400 hidden mt-2"></p>
-    <button id="clSubmit" class="btn-primary w-full mt-5 py-2.5 rounded-lg text-sm font-semibold">Claim it</button>
-    <button id="clSignout" class="w-full mt-2 py-2 text-xs text-gray-500 hover:text-gray-300">Sign out</button>
+    <p class="text-center text-xs text-gray-600 mt-5">Pick an address and a password — that's your account.</p>
   </div>
 </div>
 
@@ -187,7 +172,7 @@ function fmtDate(ts){const d=new Date(ts),n=new Date();if(d.toDateString()===n.t
 function toast(m){const t=$("#toast");t.textContent=m;t.classList.remove("hidden");clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.add("hidden"),2800);}
 function showErr(el,m){el.textContent=m;el.classList.remove("hidden");}
 
-$("#domHint").textContent="@"+DOMAIN; $("#clDomain").textContent="@"+DOMAIN;
+$("#auDomain").textContent="@"+DOMAIN;
 
 /* ---- state ---- */
 let me=null;              // {user_id,address,display_name,local_part}
@@ -205,18 +190,20 @@ $("#tabLogin").onclick=()=>setAuthMode("login");
 $("#tabSignup").onclick=()=>setAuthMode("signup");
 $("#authForm").onsubmit=async e=>{
   e.preventDefault(); const err=$("#auErr"),msg=$("#auMsg"); err.classList.add("hidden"); msg.classList.add("hidden");
-  const email=$("#auEmail").value.trim(), password=$("#auPass").value;
-  if(!email||password.length<6) return showErr(err,"Enter an email and a password of 6+ characters.");
+  const handle=$("#auHandle").value.trim().toLowerCase(); const password=$("#auPass").value;
+  if(!/^[a-z0-9._]{2,}$/.test(handle)) return showErr(err,"Address: 2+ letters, numbers, dots or underscores.");
+  if(password.length<6) return showErr(err,"Password must be at least 6 characters.");
+  const email=handle+"@"+DOMAIN;
   if(authMode==="signup"){
     const {data,error}=await sb.auth.signUp({email,password});
-    if(error) return showErr(err,error.message);
-    if(!data.session){ msg.textContent="Check your inbox to confirm your email, then sign in."; msg.classList.remove("hidden"); setAuthMode("login"); return; }
+    if(error) return showErr(err, /registered/i.test(error.message)?"That address is taken — try signing in.":error.message);
+    if(!data.session){ const {error:e2}=await sb.auth.signInWithPassword({email,password});
+      if(e2) return showErr(err,"Almost there — email confirmation still needs turning off in Supabase."); }
   } else {
     const {error}=await sb.auth.signInWithPassword({email,password});
-    if(error) return showErr(err,error.message);
+    if(error) return showErr(err, /confirm/i.test(error.message)?"Wrong address or password.":error.message);
   }
 };
-$("#clSignout").onclick=()=>sb.auth.signOut();
 $("#meAvatar").onclick=()=>{ if(confirm("Sign out of MyMail?")) sb.auth.signOut(); };
 
 /* react to auth changes */
@@ -225,30 +212,20 @@ sb.auth.getSession().then(({data})=>route(data.session));
 
 async function route(session){
   if(!session){ me=null; teardown(); show("auth"); return; }
-  // do I have an address yet?
-  const {data:addr}=await sb.from("addresses").select("*").eq("user_id",session.user.id).maybeSingle();
-  if(!addr){ show("claim"); return; }
+  // the login IS the address; make sure the directory row exists
+  let {data:addr}=await sb.from("addresses").select("*").eq("user_id",session.user.id).maybeSingle();
+  if(!addr){
+    const email=session.user.email||""; const handle=(email.split("@")[0]||("user"+Date.now())).toLowerCase();
+    const ins=await sb.from("addresses").insert({user_id:session.user.id,local_part:handle,address:email,display_name:handle}).select().maybeSingle();
+    addr = ins.data || {user_id:session.user.id,local_part:handle,address:email,display_name:handle};
+    if(!ins.error) toast("Welcome, "+email);
+  }
   me=addr; await enterApp();
 }
 function show(which){
   $("#authScreen").classList.toggle("hidden",which!=="auth");
-  $("#claimScreen").classList.toggle("hidden",which!=="claim");
   $("#app").classList.toggle("hidden",which!=="app");
 }
-
-/* ================= CLAIM ================= */
-$("#clSubmit").onclick=async ()=>{
-  const err=$("#clErr"); err.classList.add("hidden");
-  const name=$("#clName").value.trim(); const handle=$("#clHandle").value.trim().toLowerCase();
-  if(!name) return showErr(err,"Enter a display name.");
-  if(!/^[a-z0-9._]{2,}$/.test(handle)) return showErr(err,"2+ letters, numbers, dots or underscores.");
-  const {data:{session}}=await sb.auth.getSession();
-  const address=handle+"@"+DOMAIN;
-  const {error}=await sb.from("addresses").insert({user_id:session.user.id,local_part:handle,address,display_name:name});
-  if(error){ return showErr(err, error.message.includes("duplicate")?"That address is taken.":error.message); }
-  me={user_id:session.user.id,local_part:handle,address,display_name:name};
-  await enterApp(); toast("Welcome, "+address);
-};
 
 /* ================= APP ================= */
 async function enterApp(){
