@@ -1,0 +1,398 @@
+TESTLINE123<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MyMail</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{ --accent:#6366f1; --accent2:#8b5cf6; }
+  *{ font-family:'Inter',system-ui,sans-serif; }
+  body{ background:#0b0d12; color:#e5e7eb; }
+  .brandgrad{ background:linear-gradient(135deg,var(--accent),var(--accent2)); }
+  .brandtext{ background:linear-gradient(135deg,#a5b4fc,#c4b5fd); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .card{ background:#12151d; border:1px solid #1f2430; }
+  .inp{ background:#0f131b; border:1px solid #242b39; color:#e5e7eb; }
+  .inp:focus{ outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(99,102,241,.2); }
+  .btn-primary{ background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; }
+  .btn-primary:hover{ filter:brightness(1.08); }
+  .scroll::-webkit-scrollbar{ width:8px; } .scroll::-webkit-scrollbar-thumb{ background:#242b39; border-radius:99px; }
+  .fade{ animation:fade .18s ease; } @keyframes fade{ from{opacity:0;transform:translateY(4px);} to{opacity:1;transform:none;} }
+  .navitem.active{ background:rgba(99,102,241,.14); color:#c7d2fe; }
+  .msgrow:hover{ background:#141824; }
+  .avatar{ background:linear-gradient(135deg,var(--accent),var(--accent2)); }
+  .pill{ background:rgba(99,102,241,.14); color:#c7d2fe; }
+</style>
+</head>
+<body class="min-h-screen">
+
+<!-- ======= AUTH ======= -->
+<div id="authScreen" class="hidden min-h-screen flex items-center justify-center p-4">
+  <div class="w-full max-w-md fade">
+    <div class="flex items-center justify-center gap-3 mb-2">
+      <div class="brandgrad w-11 h-11 rounded-xl flex items-center justify-center text-white text-2xl font-bold shadow-lg">✦</div>
+      <h1 class="text-3xl font-bold brandtext tracking-tight">MyMail</h1>
+    </div>
+    <div class="text-center mb-6"><span class="pill text-xs px-2 py-1 rounded-full">● Receives real email</span></div>
+
+    <div class="card rounded-2xl p-6 shadow-2xl">
+      <div id="authTabs" class="flex gap-1 p-1 bg-black/30 rounded-xl mb-6">
+        <button id="tabLogin" class="flex-1 py-2 rounded-lg text-sm font-semibold transition">Sign in</button>
+        <button id="tabSignup" class="flex-1 py-2 rounded-lg text-sm font-semibold transition">Create account</button>
+      </div>
+      <form id="authForm" class="space-y-4">
+        <div>
+          <label class="text-xs font-medium text-gray-400">Email (your login)</label>
+          <input id="auEmail" type="email" placeholder="you@example.com" class="inp w-full mt-1 px-3 py-2.5 rounded-lg text-sm" />
+        </div>
+        <div>
+          <label class="text-xs font-medium text-gray-400">Password</label>
+          <input id="auPass" type="password" placeholder="••••••••" class="inp w-full mt-1 px-3 py-2.5 rounded-lg text-sm" />
+        </div>
+        <p id="auErr" class="text-xs text-red-400 hidden"></p>
+        <p id="auMsg" class="text-xs text-indigo-300 hidden"></p>
+        <button id="auSubmit" type="submit" class="btn-primary w-full py-2.5 rounded-lg text-sm font-semibold">Sign in</button>
+      </form>
+    </div>
+    <p class="text-center text-xs text-gray-600 mt-5">Sign up, then claim your <span id="domHint">@mymail.app</span> address.</p>
+  </div>
+</div>
+
+<!-- ======= CLAIM ADDRESS ======= -->
+<div id="claimScreen" class="hidden min-h-screen flex items-center justify-center p-4">
+  <div class="w-full max-w-md fade card rounded-2xl p-6 shadow-2xl">
+    <h2 class="text-lg font-semibold mb-1">Claim your address</h2>
+    <p class="text-sm text-gray-400 mb-5">This is the address the outside world sends mail to.</p>
+    <label class="text-xs font-medium text-gray-400">Display name</label>
+    <input id="clName" type="text" placeholder="Alex Smith" class="inp w-full mt-1 mb-3 px-3 py-2.5 rounded-lg text-sm" />
+    <label class="text-xs font-medium text-gray-400">Address</label>
+    <div class="flex items-center gap-2 mt-1">
+      <input id="clHandle" type="text" placeholder="alex" class="inp flex-1 px-3 py-2.5 rounded-lg text-sm" />
+      <span id="clDomain" class="text-sm text-gray-400 whitespace-nowrap">@mymail.app</span>
+    </div>
+    <p id="clErr" class="text-xs text-red-400 hidden mt-2"></p>
+    <button id="clSubmit" class="btn-primary w-full mt-5 py-2.5 rounded-lg text-sm font-semibold">Claim it</button>
+    <button id="clSignout" class="w-full mt-2 py-2 text-xs text-gray-500 hover:text-gray-300">Sign out</button>
+  </div>
+</div>
+
+<!-- ======= APP ======= -->
+<div id="app" class="hidden min-h-screen">
+  <header class="flex items-center gap-3 px-4 h-14 border-b border-[#1f2430] sticky top-0 bg-[#0b0d12]/95 backdrop-blur z-20">
+    <button id="menuBtn" class="md:hidden text-gray-300 text-xl">☰</button>
+    <div class="flex items-center gap-2">
+      <div class="brandgrad w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold">✦</div>
+      <span class="font-bold brandtext hidden sm:block">MyMail</span>
+    </div>
+    <div class="flex-1 max-w-xl"><input id="search" type="text" placeholder="Search mail" class="inp w-full px-3 py-2 rounded-lg text-sm" /></div>
+    <div class="flex items-center gap-3">
+      <div class="text-right hidden sm:block leading-tight">
+        <div id="meName" class="text-sm font-medium"></div>
+        <div id="meEmail" class="text-xs text-gray-500"></div>
+      </div>
+      <div id="meAvatar" class="avatar w-9 h-9 rounded-full flex items-center justify-center text-white font-semibold text-sm cursor-pointer" title="Sign out"></div>
+    </div>
+  </header>
+
+  <div class="flex">
+    <aside id="sidebar" class="w-56 shrink-0 border-r border-[#1f2430] p-3 h-[calc(100vh-3.5rem)] sticky top-14 hidden md:block">
+      <button id="composeBtn" class="btn-primary w-full py-2.5 rounded-xl text-sm font-semibold mb-4 shadow-lg">✎ Compose</button>
+      <nav class="space-y-1">
+        <button data-folder="inbox" class="navitem active w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm text-gray-300 transition">
+          <span>📥 Inbox</span><span id="inboxBadge" class="text-xs bg-indigo-500/80 text-white px-1.5 rounded-full hidden"></span>
+        </button>
+        <button data-folder="sent" class="navitem w-full flex items-center px-3 py-2 rounded-lg text-sm text-gray-300 transition">📤 Sent</button>
+        <button data-folder="starred" class="navitem w-full flex items-center px-3 py-2 rounded-lg text-sm text-gray-300 transition">⭐ Starred</button>
+      </nav>
+      <div class="mt-6 pt-4 border-t border-[#1f2430]">
+        <p class="text-xs text-gray-500 px-3 mb-1">People on this server</p>
+        <div id="directory" class="space-y-0.5 text-xs"></div>
+      </div>
+    </aside>
+
+    <main class="flex-1 min-w-0 h-[calc(100vh-3.5rem)] overflow-y-auto scroll">
+      <div id="listView">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-[#1f2430]">
+          <h2 id="folderTitle" class="font-semibold capitalize">Inbox</h2>
+          <span id="folderCount" class="text-xs text-gray-500"></span>
+        </div>
+        <div id="messageList"></div>
+        <div id="emptyState" class="hidden text-center py-24 text-gray-600"><div class="text-5xl mb-3">📭</div><p class="text-sm">Nothing here yet.</p></div>
+      </div>
+      <div id="readView" class="hidden fade">
+        <div class="flex items-center gap-2 px-4 py-3 border-b border-[#1f2430]">
+          <button id="backBtn" class="text-gray-400 hover:text-white text-sm">← Back</button><div class="flex-1"></div>
+          <button id="replyBtn" class="text-sm text-indigo-300 hover:text-indigo-200">↩ Reply</button>
+          <button id="starBtn" class="text-sm text-gray-400 hover:text-yellow-300">☆</button>
+          <button id="deleteBtn" class="text-sm text-gray-400 hover:text-red-400">🗑</button>
+        </div>
+        <div class="max-w-3xl mx-auto p-5">
+          <h1 id="readSubject" class="text-xl font-semibold mb-4"></h1>
+          <div class="flex items-center gap-3 mb-6">
+            <div id="readAvatar" class="avatar w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold"></div>
+            <div class="flex-1 min-w-0"><div id="readFrom" class="text-sm font-medium"></div><div id="readTo" class="text-xs text-gray-500"></div></div>
+            <div id="readDate" class="text-xs text-gray-500"></div>
+          </div>
+          <div id="readBody" class="text-sm leading-relaxed text-gray-200"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ======= COMPOSE ======= -->
+<div id="composeModal" class="hidden fixed inset-0 z-40 flex items-end md:items-center justify-center bg-black/60 p-0 md:p-4">
+  <div class="card w-full md:max-w-lg md:rounded-2xl rounded-t-2xl shadow-2xl fade max-h-[92vh] flex flex-col">
+    <div class="flex items-center justify-between px-4 py-3 border-b border-[#1f2430]">
+      <h3 class="font-semibold text-sm">New message</h3><button id="composeClose" class="text-gray-400 hover:text-white">✕</button>
+    </div>
+    <form id="composeForm" class="p-4 space-y-3 overflow-y-auto scroll">
+      <p class="text-xs text-gray-500">Note: this sends <b>inside MyMail</b> only. Outbound email to the world needs a sender service (see README).</p>
+      <div class="flex items-center gap-2"><span class="text-xs text-gray-500 w-10">To</span>
+        <input id="cTo" list="dirList" type="text" placeholder="name@mymail.app" class="inp flex-1 px-3 py-2 rounded-lg text-sm" /><datalist id="dirList"></datalist></div>
+      <div class="flex items-center gap-2"><span class="text-xs text-gray-500 w-10">Subj</span>
+        <input id="cSubject" type="text" placeholder="Subject" class="inp flex-1 px-3 py-2 rounded-lg text-sm" /></div>
+      <textarea id="cBody" rows="8" placeholder="Write your message…" class="inp w-full px-3 py-2 rounded-lg text-sm resize-none"></textarea>
+      <p id="composeErr" class="text-xs text-red-400 hidden"></p>
+      <div class="flex items-center justify-between pt-1">
+        <button type="button" id="composeCancel" class="text-sm text-gray-400 hover:text-white px-3 py-2">Discard</button>
+        <button type="submit" class="btn-primary px-5 py-2 rounded-lg text-sm font-semibold">Send ➤</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="toast" class="hidden fixed bottom-5 left-1/2 -translate-x-1/2 bg-[#1b2030] border border-[#2a3142] text-sm px-4 py-2.5 rounded-xl shadow-2xl z-50 fade"></div>
+<div id="bootErr" class="hidden fixed inset-0 bg-[#0b0d12] flex items-center justify-center p-6 text-center">
+  <div class="max-w-md"><div class="text-4xl mb-3">⚙️</div><p class="text-sm text-gray-400">MyMail isn't configured yet. Open <code class="text-indigo-300">config.js</code> and paste your Supabase URL and anon key.</p></div>
+</div>
+
+<script type="module">
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
+const SUPABASE_URL="https://ugqmtthmabgnsrrevupj.supabase.co", SUPABASE_ANON_KEY="sb_publishable_CpRra2sH-FS8rzEHHprYig_RtfI81bV", DOMAIN="mymail.app";
+
+const $=s=>document.querySelector(s);
+if(!SUPABASE_URL || SUPABASE_URL.includes("YOUR-") || !SUPABASE_ANON_KEY || SUPABASE_ANON_KEY.includes("YOUR-")){
+  $("#bootErr").classList.remove("hidden");
+  throw new Error("Supabase not configured");
+}
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+/* ---- helpers ---- */
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+const esc=s=>(s||"").replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const initials=n=>(n||"?").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase();
+function fmtDate(ts){const d=new Date(ts),n=new Date();if(d.toDateString()===n.toDateString())return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});if((n-d)/864e5<7)return d.toLocaleDateString([],{weekday:'short'});return d.toLocaleDateString([],{month:'short',day:'numeric'});}
+function toast(m){const t=$("#toast");t.textContent=m;t.classList.remove("hidden");clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.add("hidden"),2800);}
+function showErr(el,m){el.textContent=m;el.classList.remove("hidden");}
+
+$("#domHint").textContent="@"+DOMAIN; $("#clDomain").textContent="@"+DOMAIN;
+
+/* ---- state ---- */
+let me=null;              // {user_id,address,display_name,local_part}
+let messages=[], stateMap={}, directory=[];
+let currentFolder="inbox", openMsgId=null, realtimeChan=null, authMode="login";
+
+/* ================= AUTH ================= */
+function setAuthMode(m){ authMode=m;
+  $("#tabLogin").className="flex-1 py-2 rounded-lg text-sm font-semibold transition "+(m==="login"?"brandgrad text-white":"text-gray-400");
+  $("#tabSignup").className="flex-1 py-2 rounded-lg text-sm font-semibold transition "+(m==="signup"?"brandgrad text-white":"text-gray-400");
+  $("#auSubmit").textContent=m==="login"?"Sign in":"Create account";
+  $("#auErr").classList.add("hidden"); $("#auMsg").classList.add("hidden");
+}
+$("#tabLogin").onclick=()=>setAuthMode("login");
+$("#tabSignup").onclick=()=>setAuthMode("signup");
+$("#authForm").onsubmit=async e=>{
+  e.preventDefault(); const err=$("#auErr"),msg=$("#auMsg"); err.classList.add("hidden"); msg.classList.add("hidden");
+  const email=$("#auEmail").value.trim(), password=$("#auPass").value;
+  if(!email||password.length<6) return showErr(err,"Enter an email and a password of 6+ characters.");
+  if(authMode==="signup"){
+    const {data,error}=await sb.auth.signUp({email,password});
+    if(error) return showErr(err,error.message);
+    if(!data.session){ msg.textContent="Check your inbox to confirm your email, then sign in."; msg.classList.remove("hidden"); setAuthMode("login"); return; }
+  } else {
+    const {error}=await sb.auth.signInWithPassword({email,password});
+    if(error) return showErr(err,error.message);
+  }
+};
+$("#clSignout").onclick=()=>sb.auth.signOut();
+$("#meAvatar").onclick=()=>{ if(confirm("Sign out of MyMail?")) sb.auth.signOut(); };
+
+/* react to auth changes */
+sb.auth.onAuthStateChange((_e,session)=>route(session));
+sb.auth.getSession().then(({data})=>route(data.session));
+
+async function route(session){
+  if(!session){ me=null; teardown(); show("auth"); return; }
+  // do I have an address yet?
+  const {data:addr}=await sb.from("addresses").select("*").eq("user_id",session.user.id).maybeSingle();
+  if(!addr){ show("claim"); return; }
+  me=addr; await enterApp();
+}
+function show(which){
+  $("#authScreen").classList.toggle("hidden",which!=="auth");
+  $("#claimScreen").classList.toggle("hidden",which!=="claim");
+  $("#app").classList.toggle("hidden",which!=="app");
+}
+
+/* ================= CLAIM ================= */
+$("#clSubmit").onclick=async ()=>{
+  const err=$("#clErr"); err.classList.add("hidden");
+  const name=$("#clName").value.trim(); const handle=$("#clHandle").value.trim().toLowerCase();
+  if(!name) return showErr(err,"Enter a display name.");
+  if(!/^[a-z0-9._]{2,}$/.test(handle)) return showErr(err,"2+ letters, numbers, dots or underscores.");
+  const {data:{session}}=await sb.auth.getSession();
+  const address=handle+"@"+DOMAIN;
+  const {error}=await sb.from("addresses").insert({user_id:session.user.id,local_part:handle,address,display_name:name});
+  if(error){ return showErr(err, error.message.includes("duplicate")?"That address is taken.":error.message); }
+  me={user_id:session.user.id,local_part:handle,address,display_name:name};
+  await enterApp(); toast("Welcome, "+address);
+};
+
+/* ================= APP ================= */
+async function enterApp(){
+  show("app");
+  $("#meName").textContent=me.display_name; $("#meEmail").textContent=me.address; $("#meAvatar").textContent=initials(me.display_name);
+  await Promise.all([loadDirectory(), loadMessages(), loadStates()]);
+  subscribeRealtime();
+  selectFolder("inbox");
+}
+function teardown(){ if(realtimeChan){ sb.removeChannel(realtimeChan); realtimeChan=null; } messages=[]; stateMap={}; directory=[]; }
+
+async function loadDirectory(){
+  const {data}=await sb.from("addresses").select("address,display_name,user_id");
+  directory=data||[]; renderDirectory();
+}
+async function loadMessages(){
+  const {data}=await sb.from("messages").select("*")
+    .or(`to_address.eq.${me.address},from_address.eq.${me.address}`)
+    .order("created_at",{ascending:false}).limit(500);
+  messages=data||[];
+}
+async function loadStates(){
+  const {data:{session}}=await sb.auth.getSession();
+  const {data}=await sb.from("message_state").select("*").eq("user_id",session.user.id);
+  stateMap={}; (data||[]).forEach(s=>stateMap[s.message_id]=s);
+}
+function subscribeRealtime(){
+  if(realtimeChan) sb.removeChannel(realtimeChan);
+  realtimeChan=sb.channel("mail-"+me.address)
+    .on("postgres_changes",{event:"INSERT",schema:"public",table:"messages",filter:`to_address=eq.${me.address}`},
+      payload=>{ messages.unshift(payload.new); if($("#readView").classList.contains("hidden")) renderList(); toast("New mail from "+(payload.new.from_address||"someone")); })
+    .subscribe();
+}
+
+function stateOf(id){ return stateMap[id]||{is_read:false,is_starred:false,is_deleted:false}; }
+async function setFlag(id,field,val){
+  const {data:{session}}=await sb.auth.getSession();
+  const cur=stateOf(id); const next={message_id:id,user_id:session.user.id,is_read:cur.is_read,is_starred:cur.is_starred,is_deleted:cur.is_deleted,[field]:val};
+  stateMap[id]=next;
+  await sb.from("message_state").upsert(next,{onConflict:"message_id,user_id"});
+}
+
+/* ---- folders ---- */
+function selectFolder(f){
+  currentFolder=f; openMsgId=null;
+  $("#readView").classList.add("hidden"); $("#listView").classList.remove("hidden");
+  $("#folderTitle").textContent=f;
+  document.querySelectorAll(".navitem").forEach(b=>b.classList.toggle("active",b.dataset.folder===f));
+  renderList(); if(window.innerWidth<768) $("#sidebar").classList.add("hidden");
+}
+document.querySelectorAll(".navitem").forEach(b=>b.onclick=()=>selectFolder(b.dataset.folder));
+
+function viewMessages(){
+  return messages.filter(m=>{
+    const st=stateOf(m.id); if(st.is_deleted) return false;
+    if(currentFolder==="inbox") return m.to_address===me.address;
+    if(currentFolder==="sent") return m.from_address===me.address;
+    if(currentFolder==="starred") return st.is_starred;
+    return false;
+  });
+}
+function nameFor(address){ const d=directory.find(x=>x.address===address); return d?d.display_name:address; }
+
+function renderList(){
+  const q=$("#search").value.toLowerCase().trim();
+  let msgs=viewMessages();
+  if(q) msgs=msgs.filter(m=>((m.subject||"")+(m.body_text||"")+m.from_address+m.to_address).toLowerCase().includes(q));
+  const list=$("#messageList"),empty=$("#emptyState");
+  $("#folderCount").textContent=msgs.length?msgs.length+" message"+(msgs.length>1?"s":""):"";
+  if(!msgs.length){ list.innerHTML=""; empty.classList.remove("hidden"); return; }
+  empty.classList.add("hidden");
+  const inbox=currentFolder!=="sent";
+  list.innerHTML=msgs.map(m=>{
+    const who=inbox?(m.from_name||nameFor(m.from_address)):nameFor(m.to_address);
+    const unread=inbox && !stateOf(m.id).is_read && m.to_address===me.address;
+    const star=stateOf(m.id).is_starred;
+    return `<div class="msgrow flex items-center gap-3 px-4 py-3 border-b border-[#171b25] cursor-pointer ${unread?'bg-[#10131c]':''}" data-id="${m.id}">
+      <div class="avatar w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold shrink-0">${esc(initials(who))}</div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2">
+          <span class="text-sm truncate ${unread?'font-semibold text-white':'text-gray-300'}">${esc(inbox?who:'To: '+who)}</span>
+          ${star?'<span class="text-yellow-400 text-xs">⭐</span>':''}
+          <span class="ml-auto text-xs text-gray-500 shrink-0">${fmtDate(m.created_at)}</span>
+        </div>
+        <div class="text-sm truncate ${unread?'text-gray-100 font-medium':'text-gray-400'}">${esc(m.subject||'(no subject)')}</div>
+        <div class="text-xs text-gray-600 truncate">${esc((m.body_text||'').slice(0,80))}</div>
+      </div></div>`;
+  }).join("");
+  list.querySelectorAll(".msgrow").forEach(r=>r.onclick=()=>openMessage(r.dataset.id));
+  updateBadge();
+}
+function updateBadge(){
+  const n=messages.filter(m=>m.to_address===me.address && !stateOf(m.id).is_read && !stateOf(m.id).is_deleted).length;
+  const b=$("#inboxBadge"); if(n){b.textContent=n;b.classList.remove("hidden");}else b.classList.add("hidden");
+}
+
+/* ---- read ---- */
+function openMessage(id){
+  const m=messages.find(x=>x.id===id); if(!m) return; openMsgId=id;
+  if(m.to_address===me.address && !stateOf(id).is_read){ setFlag(id,"is_read",true).then(updateBadge); }
+  $("#readSubject").textContent=m.subject||"(no subject)";
+  $("#readAvatar").textContent=initials(m.from_name||nameFor(m.from_address));
+  $("#readFrom").innerHTML=esc(m.from_name||nameFor(m.from_address))+' <span class="text-gray-500 font-normal">&lt;'+esc(m.from_address)+'&gt;</span>';
+  $("#readTo").textContent="to "+nameFor(m.to_address)+" <"+m.to_address+">";
+  $("#readDate").textContent=new Date(m.created_at).toLocaleString();
+  const body=$("#readBody");
+  if(m.body_html){ body.innerHTML=m.body_html; } else { body.textContent=m.body_text||""; body.style.whiteSpace="pre-wrap"; }
+  $("#starBtn").textContent=stateOf(id).is_starred?"⭐":"☆";
+  $("#listView").classList.add("hidden"); $("#readView").classList.remove("hidden");
+  document.querySelector("main").scrollTop=0;
+}
+$("#backBtn").onclick=()=>selectFolder(currentFolder);
+$("#deleteBtn").onclick=async ()=>{ if(!openMsgId) return; await setFlag(openMsgId,"is_deleted",true); toast("Deleted"); selectFolder(currentFolder); };
+$("#starBtn").onclick=async ()=>{ if(!openMsgId) return; const on=!stateOf(openMsgId).is_starred; await setFlag(openMsgId,"is_starred",on); $("#starBtn").textContent=on?"⭐":"☆"; };
+$("#replyBtn").onclick=()=>{ const m=messages.find(x=>x.id===openMsgId); if(!m) return;
+  openCompose({to:m.from_address,subject:/^re:/i.test(m.subject||"")?m.subject:"Re: "+(m.subject||""),body:"\n\n——— "+m.from_address+" wrote:\n"+(m.body_text||"").split("\n").map(l=>"> "+l).join("\n")}); };
+
+/* ---- directory ---- */
+function renderDirectory(){
+  $("#directory").innerHTML=directory.map(u=>`<div class="px-3 py-1 text-gray-400 truncate" title="${esc(u.address)}">${esc(u.address)}${me&&u.address===me.address?' <span class="text-gray-600">(you)</span>':''}</div>`).join("")||'<div class="px-3 text-gray-600">No one yet</div>';
+  $("#dirList").innerHTML=directory.filter(u=>!me||u.address!==me.address).map(u=>`<option value="${esc(u.address)}">`).join("");
+}
+
+/* ---- compose (internal) ---- */
+function openCompose(pre){ pre=pre||{}; $("#cTo").value=pre.to||""; $("#cSubject").value=pre.subject||""; $("#cBody").value=pre.body||"";
+  $("#composeErr").classList.add("hidden"); $("#composeModal").classList.remove("hidden"); setTimeout(()=>$(pre.to?"#cBody":"#cTo").focus(),50); }
+$("#composeBtn").onclick=()=>openCompose();
+$("#composeClose").onclick=$("#composeCancel").onclick=()=>$("#composeModal").classList.add("hidden");
+$("#composeModal").onclick=e=>{ if(e.target===$("#composeModal")) $("#composeModal").classList.add("hidden"); };
+$("#composeForm").onsubmit=async e=>{
+  e.preventDefault(); const err=$("#composeErr"); err.classList.add("hidden");
+  let to=$("#cTo").value.toLowerCase().trim(); if(to&&!to.includes("@")) to=to+"@"+DOMAIN;
+  if(!directory.some(u=>u.address===to)) return showErr(err,"No one on this server has "+to+".");
+  const row={to_address:to,from_address:me.address,from_name:me.display_name,subject:$("#cSubject").value.trim(),body_text:$("#cBody").value,direction:"internal"};
+  const {data,error}=await sb.from("messages").insert(row).select().single();
+  if(error) return showErr(err,error.message);
+  messages.unshift(data); $("#composeModal").classList.add("hidden"); toast("Message sent to "+to); if(currentFolder==="sent") renderList();
+};
+
+/* ---- misc ---- */
+$("#search").oninput=()=>renderList();
+$("#menuBtn").onclick=()=>$("#sidebar").classList.toggle("hidden");
+window.addEventListener("resize",()=>{ if(window.innerWidth>=768) $("#sidebar").classList.remove("hidden"); });
+setAuthMode("login");
+</script>
+</body>
+</html>
