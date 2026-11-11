@@ -34,18 +34,22 @@
       <div class="brandgrad w-11 h-11 rounded-xl flex items-center justify-center text-white text-2xl font-bold shadow-lg">✦</div>
       <h1 class="text-3xl font-bold brandtext tracking-tight">MyMail</h1>
     </div>
-    <div class="text-center mb-6"><span class="pill text-xs px-2 py-1 rounded-full">● Receives real email</span></div>
+    <div class="text-center mb-6"><span class="pill text-xs px-2 py-1 rounded-full">● Your own mail address</span></div>
 
     <div class="card rounded-2xl p-6 shadow-2xl">
       <div id="authTabs" class="flex gap-1 p-1 bg-black/30 rounded-xl mb-6">
+        <button id="tabSignup" class="flex-1 py-2 rounded-lg text-sm font-semibold transition">Create address</button>
         <button id="tabLogin" class="flex-1 py-2 rounded-lg text-sm font-semibold transition">Sign in</button>
-        <button id="tabSignup" class="flex-1 py-2 rounded-lg text-sm font-semibold transition">Create account</button>
       </div>
       <form id="authForm" class="space-y-4">
+        <div id="nameWrap">
+          <label class="text-xs font-medium text-gray-400">Display name</label>
+          <input id="auName" type="text" placeholder="Alex Smith" class="inp w-full mt-1 px-3 py-2.5 rounded-lg text-sm" />
+        </div>
         <div>
-          <label class="text-xs font-medium text-gray-400">Your email address</label>
+          <label id="handleLabel" class="text-xs font-medium text-gray-400">Choose your address</label>
           <div class="flex items-center gap-2 mt-1">
-            <input id="auHandle" type="text" autocapitalize="none" autocomplete="username" placeholder="you" class="inp flex-1 px-3 py-2.5 rounded-lg text-sm" />
+            <input id="auHandle" type="text" autocapitalize="none" autocomplete="username" placeholder="alex" class="inp flex-1 px-3 py-2.5 rounded-lg text-sm" />
             <span id="auDomain" class="text-sm text-gray-400 whitespace-nowrap">@mymail.app</span>
           </div>
         </div>
@@ -55,10 +59,10 @@
         </div>
         <p id="auErr" class="text-xs text-red-400 hidden"></p>
         <p id="auMsg" class="text-xs text-indigo-300 hidden"></p>
-        <button id="auSubmit" type="submit" class="btn-primary w-full py-2.5 rounded-lg text-sm font-semibold">Sign in</button>
+        <button id="auSubmit" type="submit" class="btn-primary w-full py-2.5 rounded-lg text-sm font-semibold">Create my address</button>
       </form>
     </div>
-    <p class="text-center text-xs text-gray-600 mt-5">Pick an address and a password — that's your account.</p>
+    <p class="text-center text-xs text-gray-600 mt-5">Pick an address and password — that's your account. No separate email needed.</p>
   </div>
 </div>
 
@@ -133,7 +137,7 @@
       <h3 class="font-semibold text-sm">New message</h3><button id="composeClose" class="text-gray-400 hover:text-white">✕</button>
     </div>
     <form id="composeForm" class="p-4 space-y-3 overflow-y-auto scroll">
-      <p class="text-xs text-gray-500">Note: this sends <b>inside MyMail</b> only. Outbound email to the world needs a sender service (see README).</p>
+      <p class="text-xs text-gray-500">Sends <b>inside MyMail</b>. Sending to the outside world needs the domain set up (see README).</p>
       <div class="flex items-center gap-2"><span class="text-xs text-gray-500 w-10">To</span>
         <input id="cTo" list="dirList" type="text" placeholder="name@mymail.app" class="inp flex-1 px-3 py-2 rounded-lg text-sm" /><datalist id="dirList"></datalist></div>
       <div class="flex items-center gap-2"><span class="text-xs text-gray-500 w-10">Subj</span>
@@ -157,10 +161,9 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 const SUPABASE_URL="https://ugqmtthmabgnsrrevupj.supabase.co", SUPABASE_ANON_KEY="sb_publishable_CpRra2sH-FS8rzEHHprYig_RtfI81bV", DOMAIN="mymail.app";
 
-const $=s=>document.querySelector(s);
+const $ = s => document.querySelector(s);
 if(!SUPABASE_URL || SUPABASE_URL.includes("YOUR-") || !SUPABASE_ANON_KEY || SUPABASE_ANON_KEY.includes("YOUR-")){
-  $("#bootErr").classList.remove("hidden");
-  throw new Error("Supabase not configured");
+  $("#bootErr").classList.remove("hidden"); throw new Error("Supabase not configured");
 }
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -171,54 +174,69 @@ const initials=n=>(n||"?").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").
 function fmtDate(ts){const d=new Date(ts),n=new Date();if(d.toDateString()===n.toDateString())return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});if((n-d)/864e5<7)return d.toLocaleDateString([],{weekday:'short'});return d.toLocaleDateString([],{month:'short',day:'numeric'});}
 function toast(m){const t=$("#toast");t.textContent=m;t.classList.remove("hidden");clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.add("hidden"),2800);}
 function showErr(el,m){el.textContent=m;el.classList.remove("hidden");}
+function handleToEmail(h){ h=(h||"").toLowerCase().trim(); if(h.includes("@")) h=h.split("@")[0]; return h+"@"+DOMAIN; }
 
 $("#auDomain").textContent="@"+DOMAIN;
 
 /* ---- state ---- */
-let me=null;              // {user_id,address,display_name,local_part}
-let messages=[], stateMap={}, directory=[];
-let currentFolder="inbox", openMsgId=null, realtimeChan=null, authMode="login";
+let me=null, messages=[], stateMap={}, directory=[];
+let currentFolder="inbox", openMsgId=null, realtimeChan=null, authMode="signup";
+let pendingName=null, pendingHandle=null;
 
-/* ================= AUTH ================= */
+/* ================= AUTH (address IS the account) ================= */
 function setAuthMode(m){ authMode=m;
-  $("#tabLogin").className="flex-1 py-2 rounded-lg text-sm font-semibold transition "+(m==="login"?"brandgrad text-white":"text-gray-400");
-  $("#tabSignup").className="flex-1 py-2 rounded-lg text-sm font-semibold transition "+(m==="signup"?"brandgrad text-white":"text-gray-400");
-  $("#auSubmit").textContent=m==="login"?"Sign in":"Create account";
+  const signup = m==="signup";
+  $("#tabSignup").className="flex-1 py-2 rounded-lg text-sm font-semibold transition "+(signup?"brandgrad text-white":"text-gray-400");
+  $("#tabLogin").className="flex-1 py-2 rounded-lg text-sm font-semibold transition "+(!signup?"brandgrad text-white":"text-gray-400");
+  $("#nameWrap").classList.toggle("hidden", !signup);
+  $("#handleLabel").textContent = signup ? "Choose your address" : "Your address";
+  $("#auHandle").placeholder = signup ? "alex" : "alex";
+  $("#auSubmit").textContent = signup ? "Create my address" : "Sign in";
   $("#auErr").classList.add("hidden"); $("#auMsg").classList.add("hidden");
 }
-$("#tabLogin").onclick=()=>setAuthMode("login");
 $("#tabSignup").onclick=()=>setAuthMode("signup");
+$("#tabLogin").onclick=()=>setAuthMode("login");
+
 $("#authForm").onsubmit=async e=>{
   e.preventDefault(); const err=$("#auErr"),msg=$("#auMsg"); err.classList.add("hidden"); msg.classList.add("hidden");
-  const handle=$("#auHandle").value.trim().toLowerCase(); const password=$("#auPass").value;
+  let handle=$("#auHandle").value.toLowerCase().trim(); if(handle.includes("@")) handle=handle.split("@")[0];
+  const password=$("#auPass").value;
   if(!/^[a-z0-9._]{2,}$/.test(handle)) return showErr(err,"Address: 2+ letters, numbers, dots or underscores.");
   if(password.length<6) return showErr(err,"Password must be at least 6 characters.");
   const email=handle+"@"+DOMAIN;
   if(authMode==="signup"){
+    const name=$("#auName").value.trim();
+    if(!name) return showErr(err,"Enter a display name.");
+    pendingName=name; pendingHandle=handle;
     const {data,error}=await sb.auth.signUp({email,password});
-    if(error) return showErr(err, /registered/i.test(error.message)?"That address is taken — try signing in.":error.message);
-    if(!data.session){ const {error:e2}=await sb.auth.signInWithPassword({email,password});
-      if(e2) return showErr(err,"Almost there — email confirmation still needs turning off in Supabase."); }
+    if(error){ return showErr(err, /registered|exists/i.test(error.message)?"That address is already taken. Try signing in.":error.message); }
+    if(!data.session){ showErr(err,"Address reserved, but sign-in is blocked until email confirmation is turned off in Supabase (one toggle — see the chat)."); return; }
+    // session active -> route() will create the address row
   } else {
     const {error}=await sb.auth.signInWithPassword({email,password});
-    if(error) return showErr(err, /confirm/i.test(error.message)?"Wrong address or password.":error.message);
+    if(error){ return showErr(err, /confirm/i.test(error.message)?"Can't sign in yet — turn off email confirmation in Supabase (see chat).":"Wrong address or password."); }
   }
 };
 $("#meAvatar").onclick=()=>{ if(confirm("Sign out of MyMail?")) sb.auth.signOut(); };
 
-/* react to auth changes */
 sb.auth.onAuthStateChange((_e,session)=>route(session));
 sb.auth.getSession().then(({data})=>route(data.session));
 
 async function route(session){
   if(!session){ me=null; teardown(); show("auth"); return; }
-  // the login IS the address; make sure the directory row exists
   let {data:addr}=await sb.from("addresses").select("*").eq("user_id",session.user.id).maybeSingle();
   if(!addr){
-    const email=session.user.email||""; const handle=(email.split("@")[0]||("user"+Date.now())).toLowerCase();
-    const ins=await sb.from("addresses").insert({user_id:session.user.id,local_part:handle,address:email,display_name:handle}).select().maybeSingle();
-    addr = ins.data || {user_id:session.user.id,local_part:handle,address:email,display_name:handle};
-    if(!ins.error) toast("Welcome, "+email);
+    // create the address row from the chosen handle (or derive from the login email)
+    const email=session.user.email||"";
+    const handle=pendingHandle || email.split("@")[0];
+    const name=pendingName || handle;
+    const address=handle+"@"+DOMAIN;
+    const {error}=await sb.from("addresses").insert({user_id:session.user.id,local_part:handle,address,display_name:name});
+    pendingName=pendingHandle=null;
+    if(error && !/duplicate/i.test(error.message)){ show("auth"); return; }
+    const r=await sb.from("addresses").select("*").eq("user_id",session.user.id).maybeSingle(); addr=r.data;
+    if(!addr){ show("auth"); return; }
+    toast("Welcome, "+addr.address);
   }
   me=addr; await enterApp();
 }
@@ -237,14 +255,9 @@ async function enterApp(){
 }
 function teardown(){ if(realtimeChan){ sb.removeChannel(realtimeChan); realtimeChan=null; } messages=[]; stateMap={}; directory=[]; }
 
-async function loadDirectory(){
-  const {data}=await sb.from("addresses").select("address,display_name,user_id");
-  directory=data||[]; renderDirectory();
-}
+async function loadDirectory(){ const {data}=await sb.from("addresses").select("address,display_name,user_id"); directory=data||[]; renderDirectory(); }
 async function loadMessages(){
-  const {data}=await sb.from("messages").select("*")
-    .or(`to_address.eq.${me.address},from_address.eq.${me.address}`)
-    .order("created_at",{ascending:false}).limit(500);
+  const {data}=await sb.from("messages").select("*").or(`to_address.eq.${me.address},from_address.eq.${me.address}`).order("created_at",{ascending:false}).limit(500);
   messages=data||[];
 }
 async function loadStates(){
@@ -259,16 +272,13 @@ function subscribeRealtime(){
       payload=>{ messages.unshift(payload.new); if($("#readView").classList.contains("hidden")) renderList(); toast("New mail from "+(payload.new.from_address||"someone")); })
     .subscribe();
 }
-
 function stateOf(id){ return stateMap[id]||{is_read:false,is_starred:false,is_deleted:false}; }
 async function setFlag(id,field,val){
   const {data:{session}}=await sb.auth.getSession();
   const cur=stateOf(id); const next={message_id:id,user_id:session.user.id,is_read:cur.is_read,is_starred:cur.is_starred,is_deleted:cur.is_deleted,[field]:val};
-  stateMap[id]=next;
-  await sb.from("message_state").upsert(next,{onConflict:"message_id,user_id"});
+  stateMap[id]=next; await sb.from("message_state").upsert(next,{onConflict:"message_id,user_id"});
 }
 
-/* ---- folders ---- */
 function selectFolder(f){
   currentFolder=f; openMsgId=null;
   $("#readView").classList.add("hidden"); $("#listView").classList.remove("hidden");
@@ -279,15 +289,12 @@ function selectFolder(f){
 document.querySelectorAll(".navitem").forEach(b=>b.onclick=()=>selectFolder(b.dataset.folder));
 
 function viewMessages(){
-  return messages.filter(m=>{
-    const st=stateOf(m.id); if(st.is_deleted) return false;
+  return messages.filter(m=>{ const st=stateOf(m.id); if(st.is_deleted) return false;
     if(currentFolder==="inbox") return m.to_address===me.address;
     if(currentFolder==="sent") return m.from_address===me.address;
-    if(currentFolder==="starred") return st.is_starred;
-    return false;
-  });
+    if(currentFolder==="starred") return st.is_starred; return false; });
 }
-function nameFor(address){ const d=directory.find(x=>x.address===address); return d?d.display_name:address; }
+function nameFor(a){ const d=directory.find(x=>x.address===a); return d?d.display_name:a; }
 
 function renderList(){
   const q=$("#search").value.toLowerCase().trim();
@@ -322,7 +329,6 @@ function updateBadge(){
   const b=$("#inboxBadge"); if(n){b.textContent=n;b.classList.remove("hidden");}else b.classList.add("hidden");
 }
 
-/* ---- read ---- */
 function openMessage(id){
   const m=messages.find(x=>x.id===id); if(!m) return; openMsgId=id;
   if(m.to_address===me.address && !stateOf(id).is_read){ setFlag(id,"is_read",true).then(updateBadge); }
@@ -343,13 +349,11 @@ $("#starBtn").onclick=async ()=>{ if(!openMsgId) return; const on=!stateOf(openM
 $("#replyBtn").onclick=()=>{ const m=messages.find(x=>x.id===openMsgId); if(!m) return;
   openCompose({to:m.from_address,subject:/^re:/i.test(m.subject||"")?m.subject:"Re: "+(m.subject||""),body:"\n\n——— "+m.from_address+" wrote:\n"+(m.body_text||"").split("\n").map(l=>"> "+l).join("\n")}); };
 
-/* ---- directory ---- */
 function renderDirectory(){
   $("#directory").innerHTML=directory.map(u=>`<div class="px-3 py-1 text-gray-400 truncate" title="${esc(u.address)}">${esc(u.address)}${me&&u.address===me.address?' <span class="text-gray-600">(you)</span>':''}</div>`).join("")||'<div class="px-3 text-gray-600">No one yet</div>';
   $("#dirList").innerHTML=directory.filter(u=>!me||u.address!==me.address).map(u=>`<option value="${esc(u.address)}">`).join("");
 }
 
-/* ---- compose (internal) ---- */
 function openCompose(pre){ pre=pre||{}; $("#cTo").value=pre.to||""; $("#cSubject").value=pre.subject||""; $("#cBody").value=pre.body||"";
   $("#composeErr").classList.add("hidden"); $("#composeModal").classList.remove("hidden"); setTimeout(()=>$(pre.to?"#cBody":"#cTo").focus(),50); }
 $("#composeBtn").onclick=()=>openCompose();
@@ -365,11 +369,10 @@ $("#composeForm").onsubmit=async e=>{
   messages.unshift(data); $("#composeModal").classList.add("hidden"); toast("Message sent to "+to); if(currentFolder==="sent") renderList();
 };
 
-/* ---- misc ---- */
 $("#search").oninput=()=>renderList();
 $("#menuBtn").onclick=()=>$("#sidebar").classList.toggle("hidden");
 window.addEventListener("resize",()=>{ if(window.innerWidth>=768) $("#sidebar").classList.remove("hidden"); });
-setAuthMode("login");
+setAuthMode("signup");
 </script>
 </body>
 </html>
