@@ -50,7 +50,7 @@
           <label id="handleLabel" class="text-xs font-medium text-gray-400">Choose your address</label>
           <div class="flex items-center gap-2 mt-1">
             <input id="auHandle" type="text" autocapitalize="none" autocomplete="username" placeholder="alex" class="inp flex-1 px-3 py-2.5 rounded-lg text-sm" />
-            <span id="auDomain" class="text-sm text-gray-400 whitespace-nowrap">@mymail.app</span>
+            <span id="auDomain" class="text-sm text-gray-400 whitespace-nowrap">@mailberry.co</span>
           </div>
         </div>
         <div>
@@ -139,7 +139,7 @@
     <form id="composeForm" class="p-4 space-y-3 overflow-y-auto scroll">
       <p class="text-xs text-gray-500">Sends <b>inside MyMail</b>. Sending to the outside world needs the domain set up (see README).</p>
       <div class="flex items-center gap-2"><span class="text-xs text-gray-500 w-10">To</span>
-        <input id="cTo" list="dirList" type="text" placeholder="name@mymail.app" class="inp flex-1 px-3 py-2 rounded-lg text-sm" /><datalist id="dirList"></datalist></div>
+        <input id="cTo" list="dirList" type="text" placeholder="name@mailberry.co" class="inp flex-1 px-3 py-2 rounded-lg text-sm" /><datalist id="dirList"></datalist></div>
       <div class="flex items-center gap-2"><span class="text-xs text-gray-500 w-10">Subj</span>
         <input id="cSubject" type="text" placeholder="Subject" class="inp flex-1 px-3 py-2 rounded-lg text-sm" /></div>
       <textarea id="cBody" rows="8" placeholder="Write your message…" class="inp w-full px-3 py-2 rounded-lg text-sm resize-none"></textarea>
@@ -159,7 +159,7 @@
 
 <script type="module">
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
-const SUPABASE_URL="https://ugqmtthmabgnsrrevupj.supabase.co", SUPABASE_ANON_KEY="sb_publishable_CpRra2sH-FS8rzEHHprYig_RtfI81bV", DOMAIN="mymail.app";
+const SUPABASE_URL="https://ugqmtthmabgnsrrevupj.supabase.co", SUPABASE_ANON_KEY="sb_publishable_CpRra2sH-FS8rzEHHprYig_RtfI81bV", DOMAIN="mailberry.co";
 
 const $ = s => document.querySelector(s);
 if(!SUPABASE_URL || SUPABASE_URL.includes("YOUR-") || !SUPABASE_ANON_KEY || SUPABASE_ANON_KEY.includes("YOUR-")){
