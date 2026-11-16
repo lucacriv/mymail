@@ -137,7 +137,7 @@
       <h3 class="font-semibold text-sm">New message</h3><button id="composeClose" class="text-gray-400 hover:text-white">✕</button>
     </div>
     <form id="composeForm" class="p-4 space-y-3 overflow-y-auto scroll">
-      <p class="text-xs text-gray-500">Sends <b>inside MyMail</b>. Sending to the outside world needs the domain set up (see README).</p>
+      <p class="text-xs text-gray-500">Sends to anyone, inside MyMail or out to the world.</p>
       <div class="flex items-center gap-2"><span class="text-xs text-gray-500 w-10">To</span>
         <input id="cTo" list="dirList" type="text" placeholder="name@mailberry.co" class="inp flex-1 px-3 py-2 rounded-lg text-sm" /><datalist id="dirList"></datalist></div>
       <div class="flex items-center gap-2"><span class="text-xs text-gray-500 w-10">Subj</span>
@@ -362,11 +362,25 @@ $("#composeModal").onclick=e=>{ if(e.target===$("#composeModal")) $("#composeMod
 $("#composeForm").onsubmit=async e=>{
   e.preventDefault(); const err=$("#composeErr"); err.classList.add("hidden");
   let to=$("#cTo").value.toLowerCase().trim(); if(to&&!to.includes("@")) to=to+"@"+DOMAIN;
-  if(!directory.some(u=>u.address===to)) return showErr(err,"No one on this server has "+to+".");
-  const row={to_address:to,from_address:me.address,from_name:me.display_name,subject:$("#cSubject").value.trim(),body_text:$("#cBody").value,direction:"internal"};
-  const {data,error}=await sb.from("messages").insert(row).select().single();
-  if(error) return showErr(err,error.message);
-  messages.unshift(data); $("#composeModal").classList.add("hidden"); toast("Message sent to "+to); if(currentFolder==="sent") renderList();
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) return showErr(err,"Enter a valid email address.");
+  const subject=$("#cSubject").value.trim(), text=$("#cBody").value;
+  const internal = to.endsWith("@"+DOMAIN) && directory.some(u=>u.address===to);
+  const btn=e.target.querySelector('button[type="submit"]'), lbl=btn?btn.textContent:"";
+  if(btn){ btn.disabled=true; btn.textContent="Sending..."; }
+  try{
+    if(internal){
+      const row={to_address:to,from_address:me.address,from_name:me.display_name,subject,body_text:text,direction:"internal"};
+      const {data,error}=await sb.from("messages").insert(row).select().single();
+      if(error){ showErr(err,error.message); return; }
+      messages.unshift(data);
+    } else {
+      const {data,error}=await sb.functions.invoke("send-email",{body:{to,subject,text}});
+      let detail=null; if(error&&error.context&&error.context.json){ try{ detail=await error.context.json(); }catch(_){ } }
+      if(error||!(data&&data.ok)){ showErr(err,(data&&data.error)||(detail&&detail.error)||(error&&error.message)||"Send failed"); return; }
+      messages.unshift({id:(crypto.randomUUID?crypto.randomUUID():String(Date.now())),to_address:to,from_address:me.address,from_name:me.display_name,subject,body_text:text,body_html:"",direction:"outbound",created_at:new Date().toISOString()});
+    }
+    $("#composeModal").classList.add("hidden"); toast("Message sent to "+to); if(currentFolder==="sent") renderList();
+  } finally { if(btn){ btn.disabled=false; btn.textContent=lbl; } }
 };
 
 $("#search").oninput=()=>renderList();
